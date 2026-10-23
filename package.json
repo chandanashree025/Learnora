@@ -1,0 +1,12 @@
+{
+  "name": "learnora",
+  "version": "1.0.0",
+  "description": "Learnora - AI-Powered Personalized Learning Management System",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node backend/server.js",
+    "build": "npm --prefix backend install",
+    "postinstall": "npm --prefix backend install"
+  }
+}

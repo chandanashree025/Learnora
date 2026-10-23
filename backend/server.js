@@ -1,6 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
 import { connectDB } from './config/db.js';
 import { dataStore } from './services/dataStore.js';
 
@@ -11,7 +14,11 @@ import quizRoutes from './routes/quizRoutes.js';
 import recommendationRoutes from './routes/recommendationRoutes.js';
 import analyticsRoutes from './routes/analyticsRoutes.js';
 
-// Load environment variables
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Load environment variables from backend/.env or cwd
+dotenv.config({ path: path.resolve(__dirname, '.env') });
 dotenv.config();
 
 const app = express();
@@ -25,29 +32,23 @@ app.use(express.json());
 // Database connection attempt
 connectDB();
 
-// Root endpoint (friendly response when opening backend domain in browser)
+// Root endpoint: returns HTTP 200 JSON
 app.get('/', (req, res) => {
   res.status(200).json({
     success: true,
     message: 'Learnora backend is running',
-    brand: 'Learnora',
-    tagline: 'Learn  Grow  Achieve',
-    storageMode: dataStore.getStorageMode(),
-    timestamp: new Date().toISOString(),
   });
 });
 
-// Health check endpoint (for Render / uptime monitoring)
+// Health check endpoint (for Render / uptime monitoring): returns HTTP 200 JSON
 app.get('/health', (req, res) => {
   res.status(200).json({
     success: true,
     message: 'Learnora backend is running',
-    storageMode: dataStore.getStorageMode(),
-    timestamp: new Date().toISOString(),
   });
 });
 
-// Health & System status endpoint
+// Health & System status API endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({
     success: true,
