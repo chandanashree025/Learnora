@@ -15,6 +15,7 @@ import analyticsRoutes from './routes/analyticsRoutes.js';
 dotenv.config();
 
 const app = express();
+const HOST = process.env.HOST || '0.0.0.0';
 const PORT = process.env.PORT || 5000;
 
 // Middleware
@@ -24,9 +25,32 @@ app.use(express.json());
 // Database connection attempt
 connectDB();
 
+// Root endpoint (friendly response when opening backend domain in browser)
+app.get('/', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Learnora backend is running',
+    brand: 'Learnora',
+    tagline: 'Learn  Grow  Achieve',
+    storageMode: dataStore.getStorageMode(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
+// Health check endpoint (for Render / uptime monitoring)
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    success: true,
+    message: 'Learnora backend is running',
+    storageMode: dataStore.getStorageMode(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Health & System status endpoint
 app.get('/api/health', (req, res) => {
   res.status(200).json({
+    success: true,
     status: 'online',
     brand: 'Learnora',
     tagline: 'Learn  Grow  Achieve',
@@ -68,10 +92,11 @@ app.use((err, req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, HOST, () => {
   console.log(`====================================================`);
   console.log(`  LEARNORA — AI-Powered Personalized LMS API`);
   console.log(`  Tagline: Learn  Grow  Achieve`);
+  console.log(`  Host: ${HOST}`);
   console.log(`  Port: ${PORT}`);
   console.log(`  Storage Mode: ${dataStore.getStorageMode()}`);
   console.log(`====================================================`);
