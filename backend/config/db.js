@@ -10,6 +10,7 @@ export const connectDB = async () => {
     });
     dataStore.setMongoConnected(true);
     console.log(`[Learnora Backend] MongoDB Connected: ${conn.connection.host}`);
+    await dataStore.ensureSeedDataInMongo();
     return true;
   } catch (error) {
     dataStore.setMongoConnected(false);

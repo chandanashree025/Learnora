@@ -1,10 +1,27 @@
 /**
  * LEARNORA API Client
- * Centralized HTTP request wrapper with bearer token injection,
+ * Centralized HTTP request wrapper with dynamic URL resolution,
  * safe response parsing, and comprehensive error handling.
  */
 
-const API_BASE_URL = '/api';
+export const getApiBaseUrl = () => {
+  // 1. If an explicit environment variable was configured (e.g. VITE_API_URL on Vercel)
+  if (import.meta.env.VITE_API_URL) {
+    const raw = String(import.meta.env.VITE_API_URL).trim().replace(/\/$/, '');
+    return raw.endsWith('/api') ? raw : `${raw}/api`;
+  }
+
+  // 2. If running locally in development, use relative '/api' with Vite proxy
+  if (
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  ) {
+    return '/api';
+  }
+
+  // 3. Deployed production default: connect directly to the deployed Render backend
+  return 'https://learnora-backend-dq7l.onrender.com/api';
+};
 
 export const apiClient = {
   getToken() {
@@ -24,7 +41,9 @@ export const apiClient = {
   },
 
   async request(endpoint, options = {}) {
-    const url = `${API_BASE_URL}${endpoint}`;
+    const baseUrl = getApiBaseUrl();
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const url = `${baseUrl}${cleanEndpoint}`;
     const headers = this.getHeaders();
 
     const config = {
@@ -39,13 +58,13 @@ export const apiClient = {
     try {
       response = await fetch(url, config);
     } catch (networkError) {
-      console.error(`Network Error on [${options.method || 'GET'} ${endpoint}]:`, networkError);
+      console.error(`Network Error on [${options.method || 'GET'} ${url}]:`, networkError);
       throw new Error(
-        'Unable to reach the Learnora backend server. Please verify that the backend is running on port 5000.'
+        'Unable to reach the Learnora backend server. Please verify your internet connection or check that the backend is awake.'
       );
     }
 
-    // Safely retrieve the response body as text first to prevent 'Unexpected end of JSON input'
+    // Safely retrieve response body as text first to avoid 'Unexpected end of JSON input'
     let rawText = '';
     try {
       rawText = await response.text();
@@ -58,24 +77,34 @@ export const apiClient = {
       try {
         data = JSON.parse(rawText);
       } catch (jsonParseError) {
-        console.warn(`Non-JSON response from [${endpoint}]:`, rawText.substring(0, 150));
+        console.warn(`Non-JSON response from [${url}]:`, rawText.substring(0, 150));
       }
     }
 
     // Handle HTTP error statuses (4xx, 5xx)
     if (!response.ok) {
-      const serverMessage = data && (data.message || data.error);
-      if (serverMessage) {
+      let serverMessage = '';
+      if (data && typeof data === 'object') {
+        serverMessage = data.message || data.error;
+      } else if (typeof data === 'string' && data.trim()) {
+        serverMessage = data;
+      }
+
+      if (serverMessage && typeof serverMessage === 'string') {
         throw new Error(serverMessage);
       }
 
+      if (response.status === 401) {
+        throw new Error('Invalid email or password.');
+      }
+
       if (response.status === 404) {
-        throw new Error(`API endpoint '${endpoint}' was not found on the Learnora server.`);
+        throw new Error(`API endpoint '${cleanEndpoint}' was not found on the Learnora server.`);
       }
 
       if (response.status === 502 || response.status === 503 || response.status === 504) {
         throw new Error(
-          'Learnora backend gateway is unreachable. Please ensure the backend server is running on port 5000.'
+          'Learnora backend service is waking up on Render. Please wait a few moments and try again.'
         );
       }
 

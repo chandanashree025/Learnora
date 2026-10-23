@@ -11,40 +11,72 @@ export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
+  const extractMessage = (err) => {
+    if (!err) return 'Login failed. Please verify your credentials.';
+    if (typeof err === 'string') return err;
+    if (err?.response?.data) {
+      if (typeof err.response.data === 'string') return err.response.data;
+      if (err.response.data.message) return err.response.data.message;
+      if (err.response.data.error) return err.response.data.error;
+    }
+    if (err?.message && typeof err.message === 'string') return err.message;
+    if (err?.data?.message) return err.data.message;
+    try {
+      const parsed = JSON.stringify(err);
+      return parsed !== '{}' ? parsed : 'Login failed. Please try again.';
+    } catch {
+      return 'Login failed. Please verify your credentials.';
+    }
+  };
+
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     setError('');
 
-    if (!email || !password) {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail || !password) {
       setError('Please provide both email address and password.');
       return;
     }
 
     setLoading(true);
     try {
-      const loggedUser = await login(email, password);
-      if (loggedUser.role === 'instructor') {
+      const loggedUser = await login(trimmedEmail, password);
+      if (loggedUser && loggedUser.role === 'instructor') {
         navigate('/instructor');
       } else {
         navigate('/dashboard');
       }
     } catch (err) {
-      setError(err.message || 'Login failed. Please verify your credentials.');
+      console.error('Login error:', err);
+      setError(extractMessage(err));
     } finally {
       setLoading(false);
     }
   };
 
-  // Fast-fill demo credentials for major project presentations
-  const fillDemo = (role) => {
-    if (role === 'student') {
-      setEmail('student@learnora.edu');
-      setPassword('Student@123');
-    } else {
-      setEmail('instructor@learnora.edu');
-      setPassword('Instructor@123');
-    }
+  // One-click demo login for student or instructor
+  const handleDemoLogin = async (role) => {
     setError('');
+    const demoEmail = role === 'student' ? 'student@learnora.edu' : 'instructor@learnora.edu';
+    const demoPassword = role === 'student' ? 'Student@123' : 'Instructor@123';
+    setEmail(demoEmail);
+    setPassword(demoPassword);
+
+    setLoading(true);
+    try {
+      const loggedUser = await login(demoEmail, demoPassword);
+      if (loggedUser && loggedUser.role === 'instructor') {
+        navigate('/instructor');
+      } else {
+        navigate('/dashboard');
+      }
+    } catch (err) {
+      console.error('Demo login error:', err);
+      setError(extractMessage(err));
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -85,24 +117,34 @@ export default function LoginPage() {
           </p>
         </div>
 
-        {/* Demo Credential Quick-Fill Chips */}
+        {/* Demo Credential Quick-Fill & Direct Login Chips */}
         <div style={{
           backgroundColor: 'var(--card-blue)',
           border: '1px solid var(--border-light)',
           borderRadius: 'var(--radius-sm)',
-          padding: '12px 14px',
+          padding: '14px',
           marginBottom: '22px',
         }}>
-          <div style={{ fontSize: '0.74rem', fontWeight: '700', color: 'var(--navy)', textTransform: 'uppercase', marginBottom: '8px' }}>
-            Demo Presentation Access:
+          <div style={{
+            fontSize: '0.74rem',
+            fontWeight: '700',
+            color: 'var(--navy)',
+            textTransform: 'uppercase',
+            marginBottom: '8px',
+            display: 'flex',
+            justifyContent: 'space-between',
+          }}>
+            <span>One-Click Demo Access:</span>
+            <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>Verified Seed Accounts</span>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
               type="button"
-              onClick={() => fillDemo('student')}
+              onClick={() => handleDemoLogin('student')}
+              disabled={loading}
               style={{
                 flex: 1,
-                padding: '7px 10px',
+                padding: '8px 10px',
                 backgroundColor: '#FFFFFF',
                 border: '1px solid var(--border-light)',
                 borderRadius: 'var(--radius-xs)',
@@ -113,6 +155,8 @@ export default function LoginPage() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '6px',
+                cursor: 'pointer',
+                transition: 'var(--transition)',
               }}
             >
               <UserCheck size={14} color="var(--accent-sky)" />
@@ -120,10 +164,11 @@ export default function LoginPage() {
             </button>
             <button
               type="button"
-              onClick={() => fillDemo('instructor')}
+              onClick={() => handleDemoLogin('instructor')}
+              disabled={loading}
               style={{
                 flex: 1,
-                padding: '7px 10px',
+                padding: '8px 10px',
                 backgroundColor: '#FFFFFF',
                 border: '1px solid var(--border-light)',
                 borderRadius: 'var(--radius-xs)',
@@ -134,6 +179,8 @@ export default function LoginPage() {
                 alignItems: 'center',
                 justifyContent: 'center',
                 gap: '6px',
+                cursor: 'pointer',
+                transition: 'var(--transition)',
               }}
             >
               <GraduationCap size={14} color="#8c2e47" />
@@ -148,17 +195,18 @@ export default function LoginPage() {
             backgroundColor: 'var(--card-pink)',
             border: '1px solid #ebd0d7',
             borderRadius: 'var(--radius-sm)',
-            padding: '10px 14px',
+            padding: '12px 14px',
             marginBottom: '18px',
             display: 'flex',
-            alignItems: 'center',
+            alignItems: 'flex-start',
             gap: '10px',
             color: '#8c2e47',
             fontSize: '0.84rem',
             fontWeight: '600',
+            lineHeight: 1.45,
           }}>
-            <AlertCircle size={17} />
-            <span>{error}</span>
+            <AlertCircle size={18} style={{ flexShrink: 0, marginTop: '2px' }} />
+            <span>{typeof error === 'object' ? extractMessage(error) : String(error)}</span>
           </div>
         )}
 
@@ -177,6 +225,7 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="e.g. student@learnora.edu"
                 style={{ width: '100%', paddingLeft: '38px' }}
+                disabled={loading}
               />
             </div>
           </div>
@@ -194,6 +243,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 style={{ width: '100%', paddingLeft: '38px' }}
+                disabled={loading}
               />
             </div>
           </div>

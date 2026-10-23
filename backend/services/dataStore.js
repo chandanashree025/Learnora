@@ -119,6 +119,46 @@ class DataStore {
     this.isMongoConnected = connected;
   }
 
+  async ensureSeedDataInMongo() {
+    try {
+      for (const u of initialUsers) {
+        const existing = await User.findOne({ email: u.email.toLowerCase() });
+        if (!existing) {
+          const salt = await bcrypt.genSalt(10);
+          const hashedPassword = await bcrypt.hash(u.password, salt);
+          await User.create({
+            name: u.name,
+            email: u.email.toLowerCase(),
+            password: hashedPassword,
+            role: u.role,
+            avatar: u.avatar,
+          });
+          console.log(`[Learnora AutoSeed] Seeded user ${u.email} to MongoDB.`);
+        }
+      }
+
+      const courseCount = await Course.countDocuments();
+      if (courseCount === 0) {
+        const instructor = await User.findOne({ role: 'instructor' });
+        for (const c of initialCourses) {
+          await Course.create({
+            title: c.title,
+            description: c.description,
+            category: c.category,
+            difficulty: c.difficulty,
+            instructor: instructor ? instructor._id : null,
+            instructorName: c.instructorName,
+            estimatedHours: c.estimatedHours,
+            cardColor: c.cardColor,
+          });
+        }
+        console.log('[Learnora AutoSeed] Seeded default courses to MongoDB.');
+      }
+    } catch (err) {
+      console.warn('[Learnora AutoSeed Error]:', err.message);
+    }
+  }
+
   getStorageMode() {
     return this.isMongoConnected ? 'MongoDB (Live Database)' : 'Local Development Mode (In-Memory / State Engine)';
   }
